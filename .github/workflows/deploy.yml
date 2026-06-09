@@ -1,0 +1,46 @@
+name: Deploy to Cloud Run
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  PROJECT_ID: nts-int-nts-buddy
+  SERVICE_NAME: galactic-api-public
+  REGION: europe-west4
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # Authenticate to Google Cloud using Workload Identity Federation
+      - name: Google Auth
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: 'projects/317743649525/locations/global/workloadIdentityPools/github-actions-pool/providers/github-actions-provider'
+          service_account: 'gh-actions-builder@nts-int-nts-buddy.iam.gserviceaccount.com'
+
+      # Deploy directly to Cloud Run using Source-to-Service (Method 1)
+      - name: Deploy to Cloud Run
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ env.SERVICE_NAME }}
+          region: ${{ env.REGION }}
+          source: ./
+          flags: |
+            --allow-unauthenticated
+            --port=8080
+            --memory=256Mi
+            --cpu=1
+            --min-instances=0
+            --max-instances=1
