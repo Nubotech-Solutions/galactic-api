@@ -1,0 +1,44 @@
+# Byte-compiled / optimized
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Packaging / build artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Test / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Tooling caches
+.mypy_cache/
+.ruff_cache/
+
+# Environment / secrets
+.env
+.env.*
+*.local
+
+# Claude Code (keep shared .claude/settings.json; ignore personal/local overrides)
+.claude/settings.local.json
+.claude/*.local.json
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+
+# OS cruft
+.DS_Store
+Thumbs.db
