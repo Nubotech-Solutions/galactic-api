@@ -1,9 +1,12 @@
 import copy
 import os
+from pathlib import Path as FilePath
 from typing import Annotated, Literal
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Path, status
+from fastapi.responses import FileResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 
@@ -865,6 +868,13 @@ app = FastAPI(
     openapi_tags=_OPENAPI_TAGS,
 )
 
+SITE_DIR = FilePath(__file__).resolve().parent / "site"
+app.mount(
+    "/assets",
+    StaticFiles(directory=SITE_DIR / "assets"),
+    name="site-assets",
+)
+
 _COMMON_ERRORS: dict = {
     401: {"model": ErrorResponse, "description": "Missing or invalid clearance token"},
     403: {"model": ErrorResponse, "description": "Insufficient clearance level for this endpoint"},
@@ -1559,9 +1569,19 @@ async def health() -> dict:
     return {"status": "ok"}
 
 
+@app.get("/styles.css", include_in_schema=False)
+async def site_styles() -> FileResponse:
+    return FileResponse(SITE_DIR / "styles.css")
+
+
+@app.get("/app.js", include_in_schema=False)
+async def site_script() -> FileResponse:
+    return FileResponse(SITE_DIR / "app.js")
+
+
 @app.get("/", include_in_schema=False)
-async def root() -> dict:
-    return {"service": "Galactic Logistics API — Outpost Gamma", "docs": "/docs"}
+async def root() -> FileResponse:
+    return FileResponse(SITE_DIR / "index.html")
 
 
 # Unlisted maintenance hook. Restores the in-memory store to its seed baseline,

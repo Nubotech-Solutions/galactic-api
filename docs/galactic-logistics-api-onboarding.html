@@ -1,0 +1,680 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Galactic Logistics API Onboarding Guide</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 0;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    :root {
+      color-scheme: light;
+      --ink: #17212b;
+      --muted: #5b6775;
+      --line: #d8dee6;
+      --panel: #f5f7fa;
+      --deep: #10233a;
+      --teal: #147d83;
+      --gold: #b7791f;
+      --red: #b83535;
+      --green: #2f855a;
+      --white: #ffffff;
+    }
+
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      background: #e8edf3;
+      color: var(--ink);
+      font-family: "Segoe UI", Arial, sans-serif;
+      font-size: 9.6pt;
+      line-height: 1.3;
+    }
+
+    body {
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    .page {
+      width: 210mm;
+      height: 297mm;
+      margin: 0 auto;
+      padding: 12mm 16mm 8mm;
+      background: var(--white);
+      page-break-after: always;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .page:last-child {
+      page-break-after: auto;
+    }
+
+    .masthead {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12mm;
+      align-items: start;
+      padding-bottom: 4mm;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .brand {
+      display: flex;
+      gap: 9px;
+      align-items: center;
+      color: var(--deep);
+      font-weight: 700;
+      letter-spacing: 0;
+    }
+
+    .brand-mark {
+      display: inline-grid;
+      width: 28px;
+      height: 28px;
+      place-items: center;
+      border-radius: 7px;
+      background: var(--deep);
+      color: var(--white);
+      font-size: 9pt;
+    }
+
+    .doc-meta {
+      color: var(--muted);
+      font-size: 8.6pt;
+      text-align: right;
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+      margin: 0;
+    }
+
+    h1 {
+      margin-top: 6mm;
+      max-width: 148mm;
+      font-size: 24.5pt;
+      line-height: 1.03;
+      color: var(--deep);
+      letter-spacing: 0;
+    }
+
+    h2 {
+      margin-bottom: 3.2mm;
+      color: var(--deep);
+      font-size: 15.2pt;
+      line-height: 1.12;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin-bottom: 1.5mm;
+      color: var(--deep);
+      font-size: 9.8pt;
+      line-height: 1.2;
+    }
+
+    .kicker {
+      color: var(--teal);
+      font-size: 7.8pt;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .lede {
+      margin-top: 4mm;
+      max-width: 154mm;
+      color: #344255;
+      font-size: 11.1pt;
+      line-height: 1.32;
+    }
+
+    .section {
+      margin-top: 5mm;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3mm;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 2.6mm;
+    }
+
+    .card {
+      min-height: 19mm;
+      padding: 3.1mm;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--white);
+    }
+
+    .card p,
+    .note p,
+    .scenario p,
+    td,
+    li {
+      color: var(--muted);
+    }
+
+    .capability-card {
+      border-left: 4px solid var(--teal);
+    }
+
+    .capability-card strong {
+      display: block;
+      margin-bottom: 1.5mm;
+      color: var(--ink);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      font-size: 8.5pt;
+    }
+
+    th,
+    td {
+      padding: 2.1mm 2.4mm;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    th {
+      background: #eaf3f4;
+      color: var(--deep);
+      font-size: 8.3pt;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+    }
+
+    .role {
+      color: var(--deep);
+      font-weight: 700;
+    }
+
+    .callout {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 3mm;
+      align-items: center;
+      margin-top: 4mm;
+      padding: 3.4mm;
+      border-radius: 8px;
+      background: var(--deep);
+      color: var(--white);
+    }
+
+    .callout .label {
+      color: #9ad6d9;
+      font-size: 8pt;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    code,
+    pre {
+      font-family: "Cascadia Mono", Consolas, monospace;
+    }
+
+    .endpoint {
+      display: inline-block;
+      padding: 1.4mm 2mm;
+      border-radius: 5px;
+      background: rgba(255, 255, 255, .12);
+      color: var(--white);
+      font-size: 9pt;
+    }
+
+    .scenario {
+      display: grid;
+      grid-template-columns: 26mm 1fr;
+      gap: 3mm;
+      padding: 3mm 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .scenario:last-child {
+      border-bottom: 0;
+    }
+
+    .scenario-tag {
+      color: var(--teal);
+      font-size: 8.2pt;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .workflow {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 2mm;
+      margin-top: 3mm;
+    }
+
+    .step {
+      min-height: 25mm;
+      padding: 2.6mm;
+      border-radius: 8px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+    }
+
+    .step-number {
+      display: inline-grid;
+      width: 20px;
+      height: 20px;
+      place-items: center;
+      margin-bottom: 2mm;
+      border-radius: 50%;
+      background: var(--teal);
+      color: var(--white);
+      font-size: 8pt;
+      font-weight: 700;
+    }
+
+    .step strong {
+      display: block;
+      color: var(--deep);
+      font-size: 8.4pt;
+      line-height: 1.2;
+    }
+
+    .step span {
+      display: block;
+      margin-top: 1.4mm;
+      color: var(--muted);
+      font-size: 7.4pt;
+      line-height: 1.25;
+    }
+
+    .quickstart {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3.5mm;
+      align-items: start;
+    }
+
+    .code-block {
+      margin-top: 2.5mm;
+      padding: 3mm;
+      border-radius: 7px;
+      background: #17212b;
+      color: #eef6ff;
+      font-size: 7.2pt;
+      line-height: 1.32;
+      white-space: pre-wrap;
+    }
+
+    .mini-list {
+      margin: 2mm 0 0;
+      padding-left: 5mm;
+    }
+
+    .mini-list li {
+      margin-bottom: 1.4mm;
+    }
+
+    .status-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 2.4mm;
+    }
+
+    .status-card {
+      padding: 3mm;
+      border-radius: 8px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+    }
+
+    .status-code {
+      display: block;
+      margin-bottom: 1mm;
+      font-size: 12pt;
+      font-weight: 800;
+    }
+
+    .status-code.warn {
+      color: var(--gold);
+    }
+
+    .status-code.blocked {
+      color: var(--red);
+    }
+
+    .status-code.missing {
+      color: var(--muted);
+    }
+
+    .footer {
+      display: flex;
+      justify-content: space-between;
+      margin-top: auto;
+      padding-top: 2mm;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 8pt;
+    }
+
+    .page-cover {
+      padding-top: 11mm;
+    }
+
+    .cover-band {
+      margin-top: 5mm;
+      display: grid;
+      grid-template-columns: 1.1fr .9fr;
+      gap: 4mm;
+      align-items: stretch;
+    }
+
+    .hero-panel {
+      min-height: 42mm;
+      padding: 4.4mm;
+      border-radius: 8px;
+      background:
+        linear-gradient(135deg, rgba(16, 35, 58, .96), rgba(20, 125, 131, .78)),
+        url("../site/assets/outpost-gamma-hero.png") center / cover;
+      color: var(--white);
+    }
+
+    .hero-panel p {
+      max-width: 86mm;
+      margin-top: 2mm;
+      color: #dceaf0;
+      font-size: 9.6pt;
+    }
+
+    .hero-metric {
+      display: grid;
+      gap: 2.3mm;
+    }
+
+    .metric {
+      padding: 3mm;
+      border-radius: 8px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+    }
+
+    .metric span {
+      color: var(--muted);
+      font-size: 8pt;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+    }
+
+    .metric strong {
+      display: block;
+      margin-top: 1mm;
+      color: var(--deep);
+      font-size: 12.5pt;
+    }
+
+    .note {
+      padding: 3.1mm;
+      border-radius: 8px;
+      background: #fff8eb;
+      border: 1px solid #edd6aa;
+    }
+
+    @media print {
+      html,
+      body {
+        background: var(--white);
+      }
+
+      .page {
+        margin: 0;
+        box-shadow: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <article class="page page-cover">
+    <header class="masthead">
+      <div class="brand">
+        <span class="brand-mark">GL</span>
+        <span>Galactic Logistics<br><span style="font-weight: 500; color: var(--muted);">Outpost Gamma</span></span>
+      </div>
+      <div class="doc-meta">
+        Partner API Onboarding Guide<br>
+        External technical overview
+      </div>
+    </header>
+
+    <p class="kicker" style="margin-top: 10mm;">Operations API</p>
+    <h1>Build against the same operational picture used by Outpost Gamma.</h1>
+    <p class="lede">A clearance-aware operations API for station status, crew readiness, cargo, convoys, trade contracts, and classified fleet workflows.</p>
+
+    <section class="cover-band">
+      <div class="hero-panel">
+        <p class="kicker" style="color: #9ad6d9;">What partners can automate</p>
+        <p>Monitor station health, detect cargo risk, coordinate convoys, review trade obligations, and route sensitive records through the right clearance tier.</p>
+      </div>
+      <div class="hero-metric">
+        <div class="metric"><span>Primary onboarding call</span><strong><code>/v1/whoami</code></strong></div>
+        <div class="metric"><span>Auth model</span><strong>Bearer clearance token</strong></div>
+        <div class="metric"><span>Reference docs</span><strong><code>/docs</code> and <code>/redoc</code></strong></div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Capability Map</h2>
+      <div class="grid-3">
+        <div class="card capability-card"><strong>Station</strong><p>Read operational status, alert level, subsystem health, and engineering notes.</p></div>
+        <div class="card capability-card"><strong>Crew</strong><p>Review crew roster, duty status, certifications, and readiness for assignments.</p></div>
+        <div class="card capability-card"><strong>Cargo</strong><p>Discover cargo IDs, inspect mass and hazard data, and update inspection state.</p></div>
+        <div class="card capability-card"><strong>Shipments</strong><p>Create convoys, track ETAs, record delays, update cargo, and cancel when authorized.</p></div>
+        <div class="card capability-card"><strong>Trade</strong><p>Review contracts, counterparties, values, cargo references, and settlement status.</p></div>
+        <div class="card capability-card"><strong>Fleet</strong><p>Access Admiral-only orders, missions, classified objectives, and command notes.</p></div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Clearance Model</h2>
+      <table>
+        <thead>
+          <tr><th>Level</th><th>Role</th><th>Typical Access</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>1</td><td class="role">Deckhand</td><td>Station status and systems, crew roster, cargo manifest.</td></tr>
+          <tr><td>2</td><td class="role">Logistics Officer</td><td>Crew details, cargo details, shipments, trade manifests, and most write workflows.</td></tr>
+          <tr><td>3</td><td class="role">Sector Admiral</td><td>Classified records, fleet orders, active missions, and destructive deletes.</td></tr>
+        </tbody>
+      </table>
+      <div class="callout">
+        <span class="label">Start here</span>
+        <span>Call <span class="endpoint">GET /v1/whoami</span> to confirm which role and clearance level your token maps to before running workflow tests.</span>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <span>Galactic Logistics API Onboarding</span>
+      <span>Page 1</span>
+    </footer>
+  </article>
+
+  <article class="page">
+    <header class="masthead">
+      <div>
+        <p class="kicker">Use Cases</p>
+        <h2 style="margin-top: 2mm;">Operational scenarios partners can build on.</h2>
+      </div>
+      <div class="doc-meta">Scenario guide</div>
+    </header>
+
+    <section class="section">
+      <div class="scenario">
+        <div class="scenario-tag">Dashboard</div>
+        <div><h3>Operations dashboard</h3><p>Combine station status, subsystem health, active convoys, and delayed shipments into a single readiness view for operators or AI agents.</p></div>
+      </div>
+      <div class="scenario">
+        <div class="scenario-tag">Cargo</div>
+        <div><h3>Cargo risk review</h3><p>List cargo, inspect item details, identify high-risk hazards, and update inspection states before the cargo is loaded or cleared.</p></div>
+      </div>
+      <div class="scenario">
+        <div class="scenario-tag">Convoy</div>
+        <div><h3>Convoy coordination</h3><p>Create new supply runs, update ETA or route status, capture delay reasons, and keep cargo references attached to the shipment record.</p></div>
+      </div>
+      <div class="scenario">
+        <div class="scenario-tag">Trade</div>
+        <div><h3>Trade operations</h3><p>Review active and pending contracts, understand counterparty exposure, and update contract status as agreements are settled.</p></div>
+      </div>
+      <div class="scenario">
+        <div class="scenario-tag">Command</div>
+        <div><h3>Command workflow</h3><p>Route fleet orders, mission briefings, and Admiral-classified cargo or shipment records only to callers with Level 3 clearance.</p></div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Sample Workflow</h2>
+      <div class="workflow">
+        <div class="step"><span class="step-number">1</span><strong>Check station status</strong><span>Use Level 1 access to confirm alert level and operating conditions.</span></div>
+        <div class="step"><span class="step-number">2</span><strong>Review cargo manifest</strong><span>Discover cargo IDs before requesting detail records.</span></div>
+        <div class="step"><span class="step-number">3</span><strong>Inspect risky cargo</strong><span>Use Level 2 detail endpoints to review hazards, mass, and destination.</span></div>
+        <div class="step"><span class="step-number">4</span><strong>Create or update convoy</strong><span>Dispatch cargo, record ETA, and keep delay notes current.</span></div>
+        <div class="step"><span class="step-number">5</span><strong>Escalate classified records</strong><span>Send blocked or hidden records to an Admiral-cleared workflow.</span></div>
+      </div>
+    </section>
+
+    <section class="section grid-2">
+      <div class="note">
+        <h3>Design pattern for integrations</h3>
+        <p>Use list endpoints to discover stable IDs, then call detail endpoints only when the user, workflow, or agent needs richer operational context.</p>
+      </div>
+      <div class="note">
+        <h3>Classification behavior</h3>
+        <p>Some Admiral-classified records are hidden from lower-level list responses and return <code>403</code> when directly requested without Level 3 clearance.</p>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Workflow to Endpoint Examples</h2>
+      <table>
+        <thead>
+          <tr><th>Need</th><th>Useful endpoints</th><th>Minimum level</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Read station readiness</td><td><code>GET /v1/station/status</code>, <code>GET /v1/station/systems</code></td><td>Deckhand</td></tr>
+          <tr><td>Investigate cargo</td><td><code>GET /v1/cargo/manifest</code>, <code>GET /v1/cargo/{cargo_id}</code></td><td>Deckhand to Logistics Officer</td></tr>
+          <tr><td>Coordinate convoys</td><td><code>GET /v1/shipments</code>, <code>POST /v1/shipments</code>, <code>PATCH /v1/shipments/{shipment_id}</code></td><td>Logistics Officer</td></tr>
+          <tr><td>Operate command layer</td><td><code>GET /v1/fleet/orders</code>, <code>GET /v1/fleet/missions</code></td><td>Sector Admiral</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <footer class="footer">
+      <span>Galactic Logistics API Onboarding</span>
+      <span>Page 2</span>
+    </footer>
+  </article>
+
+  <article class="page">
+    <header class="masthead">
+      <div>
+        <p class="kicker">Quickstart</p>
+        <h2 style="margin-top: 2mm;">Try the API with a partner clearance token.</h2>
+      </div>
+      <div class="doc-meta">Base URL: <code>https://&lt;your-api-host&gt;</code></div>
+    </header>
+
+    <section class="section quickstart">
+      <div>
+        <h3>Authentication</h3>
+        <p style="color: var(--muted);">All documented API calls except <code>/v1/whoami</code> use a Bearer clearance token supplied out-of-band by Galactic Logistics.</p>
+        <pre class="code-block">Authorization: Bearer &lt;clearance-token&gt;</pre>
+      </div>
+      <div>
+        <h3>Confirm station status</h3>
+        <p style="color: var(--muted);">A Level 1 token is enough for operational status and basic station visibility.</p>
+        <pre class="code-block">curl -H "Authorization: Bearer &lt;deckhand-token&gt;" \
+  https://&lt;your-api-host&gt;/v1/station/status</pre>
+      </div>
+    </section>
+
+    <section class="section">
+      <h3>Create a shipment</h3>
+      <p style="color: var(--muted);">A Logistics Officer token can dispatch a new convoy. The API returns a server-assigned shipment ID in the format <code>SH-NNN</code>.</p>
+      <pre class="code-block">curl -X POST https://&lt;your-api-host&gt;/v1/shipments \
+  -H "Authorization: Bearer &lt;logistics-token&gt;" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "convoy_name": "Convoy Vega",
+    "origin": "Outpost Gamma",
+    "destination": "Waystation Delta",
+    "cargo_ids": ["C-098"]
+  }'</pre>
+    </section>
+
+    <section class="section">
+      <h2>Error Handling</h2>
+      <div class="status-grid">
+        <div class="status-card"><span class="status-code warn">401</span><p>Missing, malformed, or unrecognized Bearer token.</p></div>
+        <div class="status-card"><span class="status-code blocked">403</span><p>Token is valid, but its clearance level is too low for the endpoint or record.</p></div>
+        <div class="status-card"><span class="status-code missing">404</span><p>The requested crew, cargo, shipment, trade manifest, or mission ID was not found.</p></div>
+      </div>
+    </section>
+
+    <section class="section grid-2">
+      <div class="card">
+        <h3>Integration Tips</h3>
+        <ul class="mini-list">
+          <li>Use list endpoints first to discover IDs before requesting details.</li>
+          <li>Expect classified records to be hidden or blocked below Level 3.</li>
+          <li>Treat writes as session-persistent demo data because storage is in-memory.</li>
+          <li>Use Swagger UI or ReDoc for exact request and response schemas.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Helpful Links</h3>
+        <ul class="mini-list">
+          <li><code>/docs</code> for interactive Swagger UI testing.</li>
+          <li><code>/redoc</code> for structured reference reading.</li>
+          <li><code>/openapi.json</code> for generated clients and MCP tooling.</li>
+          <li><code>/v1/whoami</code> for token role verification.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="section note">
+      <h3>Security note</h3>
+      <p>This guide intentionally uses placeholder tokens. Real partner tokens and operational secrets are distributed through separate secure channels.</p>
+    </section>
+
+    <footer class="footer">
+      <span>Galactic Logistics API Onboarding</span>
+      <span>Page 3</span>
+    </footer>
+  </article>
+</body>
+</html>

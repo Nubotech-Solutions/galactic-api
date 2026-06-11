@@ -12,6 +12,7 @@ COPY requirements.txt .
 RUN pip install -r requirements.txt
 
 COPY main.py .
+COPY site ./site
 
 # Run as non-root.
 RUN useradd --create-home --uid 1000 appuser && chown -R appuser:appuser /app
