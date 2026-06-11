@@ -1,6 +1,8 @@
-from typing import Annotated
+import copy
+import os
+from typing import Annotated, Literal
 
-from fastapi import Depends, FastAPI, HTTPException, Path, status
+from fastapi import Depends, FastAPI, Header, HTTPException, Path, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
 
@@ -52,17 +54,22 @@ def require_level(min_level: int):
 
 
 # ──────────────────────────────────────────────────────────────
-# 2.  HARDCODED DATA
+# 2.  SEED DATA
 # ──────────────────────────────────────────────────────────────
+#
+# These _SEED_* constants are the pristine, never-mutated source of truth.
+# The live, mutable in-memory store is built from deep copies of them in
+# reset_state() below, so write endpoints can mutate state freely and the
+# hidden reset endpoint can restore everything to this baseline.
 
-STATION_STATUS = {
+_SEED_STATION_STATUS = {
     "location": "Outpost Gamma",
     "oxygen_levels": "98%",
     "external_weather": "Mild cosmic radiation, occasional micrometeorites.",
     "current_alert_level": "Green",
 }
 
-STATION_SYSTEMS = [
+_SEED_STATION_SYSTEMS = [
     {
         "system_id": "SYS-01", "name": "Life Support",
         "status": "Online", "health_pct": 98, "notes": None,
@@ -96,7 +103,7 @@ STATION_SYSTEMS = [
     },
 ]
 
-CREW: dict[str, dict] = {
+_SEED_CREW: dict[str, dict] = {
     "CR-001": {
         "crew_id": "CR-001",
         "name": "Zara Khan",
@@ -153,12 +160,7 @@ CREW: dict[str, dict] = {
     },
 }
 
-CREW_SUMMARY = [
-    {"crew_id": v["crew_id"], "name": v["name"], "role": v["role"], "duty_status": v["duty_status"]}
-    for v in CREW.values()
-]
-
-CARGO_MANIFEST = [
+_SEED_CARGO_MANIFEST = [
     {"id": "C-098", "item": "Freeze-Dried Space Tacos"},
     {"id": "C-112", "item": "Medical Supplies Batch-7"},
     {"id": "C-234", "item": "Diplomatic Data Crystals"},
@@ -169,7 +171,7 @@ CARGO_MANIFEST = [
     {"id": "C-999", "item": "Unstable Plasma Cores"},
 ]
 
-CARGO_DETAILS: dict[str, dict] = {
+_SEED_CARGO_DETAILS: dict[str, dict] = {
     "C-098": {
         "id": "C-098", "item": "Freeze-Dried Space Tacos", "mass_kg": 400,
         "hazard": "Low (Messy)", "category": "Food Supplies",
@@ -220,7 +222,7 @@ CARGO_DETAILS: dict[str, dict] = {
     },
 }
 
-SHIPMENTS: dict[str, dict] = {
+_SEED_SHIPMENTS: dict[str, dict] = {
     "SH-001": {
         "shipment_id": "SH-001", "convoy_name": "Convoy Orion",
         "status": "In Transit", "origin": "Outpost Gamma", "destination": "Waystation Delta",
@@ -258,12 +260,7 @@ SHIPMENTS: dict[str, dict] = {
     },
 }
 
-SHIPMENT_SUMMARY = [
-    {k: v[k] for k in ("shipment_id", "convoy_name", "status", "origin", "destination", "eta", "cargo_ids")}
-    for v in SHIPMENTS.values()
-]
-
-TRADE_MANIFESTS: dict[str, dict] = {
+_SEED_TRADE_MANIFESTS: dict[str, dict] = {
     "TM-001": {
         "manifest_id": "TM-001", "counterparty": "Kepler Research Station",
         "status": "Active",
@@ -294,12 +291,7 @@ TRADE_MANIFESTS: dict[str, dict] = {
     },
 }
 
-TRADE_MANIFEST_SUMMARY = [
-    {k: v[k] for k in ("manifest_id", "counterparty", "status", "description", "value_credits")}
-    for v in TRADE_MANIFESTS.values()
-]
-
-FLEET_ORDERS = {
+_SEED_FLEET_ORDERS = {
     "target_sector": "Nebula-9",
     "objective": (
         "Investigate anomalous energy signatures detected along the Nebula-9 gas cloud perimeter. "
@@ -316,7 +308,7 @@ FLEET_ORDERS = {
     "priority_cargo_ids": ["C-999", "C-777"],
 }
 
-MISSIONS: dict[str, dict] = {
+_SEED_MISSIONS: dict[str, dict] = {
     "MISSION-ALPHA": {
         "mission_id": "MISSION-ALPHA",
         "name": "Nebula-9 Reconnaissance",
@@ -353,16 +345,50 @@ MISSIONS: dict[str, dict] = {
     },
 }
 
-MISSION_SUMMARY = [
-    {k: v[k] for k in ("mission_id", "name", "status", "target_sector", "assigned_crew_ids")}
-    for v in MISSIONS.values()
-]
-
 # Records flagged Admiral-only (level 3) in their own data. They are hidden from
 # level-2 list responses and return 403 on their detail endpoints below level 3.
 CLASSIFIED_SHIPMENT_IDS = {"SH-004"}
 CLASSIFIED_MANIFEST_IDS = {"TM-003"}
 CLASSIFIED_CARGO_IDS = {"C-777", "C-999"}
+
+
+# ──────────────────────────────────────────────────────────────
+# 2b.  LIVE IN-MEMORY STORE
+# ──────────────────────────────────────────────────────────────
+#
+# The write endpoints mutate these module-level globals in place. reset_state()
+# rebuilds them from deep copies of the _SEED_* baseline, so the (hidden) reset
+# endpoint can discard all mutations. Summaries are derived on the fly in the
+# list handlers, so writes are reflected without maintaining separate caches.
+
+STATION_STATUS: dict
+STATION_SYSTEMS: list[dict]
+CREW: dict[str, dict]
+CARGO_MANIFEST: list[dict]
+CARGO_DETAILS: dict[str, dict]
+SHIPMENTS: dict[str, dict]
+TRADE_MANIFESTS: dict[str, dict]
+FLEET_ORDERS: dict
+MISSIONS: dict[str, dict]
+
+
+def reset_state() -> None:
+    """Restore the live in-memory store to the pristine _SEED_* baseline."""
+    global STATION_STATUS, STATION_SYSTEMS, CREW, CARGO_MANIFEST, CARGO_DETAILS
+    global SHIPMENTS, TRADE_MANIFESTS, FLEET_ORDERS, MISSIONS
+    STATION_STATUS = copy.deepcopy(_SEED_STATION_STATUS)
+    STATION_SYSTEMS = copy.deepcopy(_SEED_STATION_SYSTEMS)
+    CREW = copy.deepcopy(_SEED_CREW)
+    CARGO_MANIFEST = copy.deepcopy(_SEED_CARGO_MANIFEST)
+    CARGO_DETAILS = copy.deepcopy(_SEED_CARGO_DETAILS)
+    SHIPMENTS = copy.deepcopy(_SEED_SHIPMENTS)
+    TRADE_MANIFESTS = copy.deepcopy(_SEED_TRADE_MANIFESTS)
+    FLEET_ORDERS = copy.deepcopy(_SEED_FLEET_ORDERS)
+    MISSIONS = copy.deepcopy(_SEED_MISSIONS)
+
+
+# Initialize the live store at import time.
+reset_state()
 
 
 # ──────────────────────────────────────────────────────────────
@@ -637,6 +663,120 @@ class ErrorResponse(BaseModel):
     detail: str = Field(description="Human-readable description of the error.", examples=["Clearance denied."])
 
 
+# ── Request bodies (write endpoints) ──────────────────────────
+
+class DutyStatusUpdate(BaseModel):
+    duty_status: Literal["On Duty", "Off Duty"] = Field(
+        description="New duty status for the crew member.",
+        examples=["Off Duty"],
+    )
+
+
+class InspectionUpdate(BaseModel):
+    inspection_status: Literal["Inspected", "Pending Inspection", "Flagged", "Restricted"] = Field(
+        description=(
+            "New inspection status. One of: Inspected (cleared), Pending Inspection (awaiting review), "
+            "Flagged (requires immediate review), Restricted (Admiral clearance only)."
+        ),
+        examples=["Inspected"],
+    )
+
+
+class SystemUpdate(BaseModel):
+    status: str | None = Field(
+        default=None,
+        description="New operational status, e.g. Online, Standby, Degraded, Maintenance.",
+        examples=["Online"],
+    )
+    health_pct: int | None = Field(
+        default=None,
+        description="New health percentage from 0 (failed) to 100 (optimal).",
+        examples=[100],
+        ge=0,
+        le=100,
+    )
+    notes: str | None = Field(
+        default=None,
+        description="Updated engineering note for this system. Pass an empty string to clear it.",
+        examples=["Ion storm damage repaired. Array back to full strength."],
+    )
+
+
+class ShipmentCreate(BaseModel):
+    convoy_name: str = Field(description="Operational name of the new convoy.", examples=["Convoy Vega"])
+    origin: str = Field(description="Departure station or sector.", examples=["Outpost Gamma"])
+    destination: str = Field(description="Destination station or sector.", examples=["Waystation Delta"])
+    eta: str | None = Field(
+        default=None,
+        description="Estimated time of arrival, or a status note if ETA is unavailable.",
+        examples=["4 days"],
+    )
+    cargo_ids: list[str] = Field(
+        default_factory=list,
+        description="Cargo IDs to load onto this convoy.",
+        examples=[["C-098", "C-333"]],
+    )
+    status: str = Field(
+        default="Loading",
+        description="Initial convoy status. One of: Loading, In Transit, Delayed, Arrived.",
+        examples=["Loading"],
+    )
+    notes: str | None = Field(
+        default=None,
+        description="Operational notes from logistics command.",
+        examples=["New supply run authorized by Logistics Officer Webb."],
+    )
+
+
+class ShipmentUpdate(BaseModel):
+    status: str | None = Field(
+        default=None,
+        description="Updated convoy status. One of: Loading, In Transit, Delayed, Arrived.",
+        examples=["In Transit"],
+    )
+    eta: str | None = Field(default=None, description="Updated estimated time of arrival.", examples=["2 days"])
+    delay_reason: str | None = Field(
+        default=None,
+        description="Reason for delay if the convoy is delayed.",
+        examples=["Rerouted around ion storm."],
+    )
+    cargo_ids: list[str] | None = Field(
+        default=None,
+        description="Replacement list of cargo IDs aboard this convoy.",
+        examples=[["C-098"]],
+    )
+    notes: str | None = Field(
+        default=None,
+        description="Updated operational notes.",
+        examples=["Back under way after checkpoint clearance."],
+    )
+
+
+class TradeManifestStatusUpdate(BaseModel):
+    status: Literal["Active", "Completed", "Pending"] = Field(
+        description="New contract status. One of: Active, Completed, Pending.",
+        examples=["Completed"],
+    )
+    notes: str | None = Field(
+        default=None,
+        description="Updated contract notes from the managing officer.",
+        examples=["Contract settled in full this cycle."],
+    )
+
+
+class MissionUpdate(BaseModel):
+    status: str | None = Field(
+        default=None,
+        description="Updated mission status. One of: Active, Completed, Aborted.",
+        examples=["Completed"],
+    )
+    notes: str | None = Field(
+        default=None,
+        description="Updated commanding officer notes for this mission.",
+        examples=["Objective achieved. Returning to Outpost Gamma."],
+    )
+
+
 # ──────────────────────────────────────────────────────────────
 # 4.  APP + OPENAPI METADATA
 # ──────────────────────────────────────────────────────────────
@@ -806,6 +946,39 @@ async def get_station_systems(
     return [StationSystem(**s) for s in STATION_SYSTEMS]
 
 
+@app.patch(
+    "/v1/station/systems/{system_id}",
+    operation_id="update_station_system",
+    tags=["station"],
+    summary="Update a station subsystem's status, health, or notes",
+    description=(
+        "Updates the operational status, health percentage, and/or engineering notes for a single "
+        "station subsystem, identified by its system ID. Only the fields you provide are changed. "
+        "Use this to record that a system has been repaired, taken offline for maintenance, or that "
+        "its health has changed. Returns the full updated subsystem record."
+    ),
+    response_description="The updated station subsystem record.",
+    response_model=StationSystem,
+    responses={
+        **_COMMON_ERRORS,
+        404: {"model": ErrorResponse, "description": "System ID not found"},
+    },
+)
+async def update_station_system(
+    system_id: Annotated[str, Path(description="System identifier, e.g. SYS-04")],
+    update: SystemUpdate,
+    _user: Annotated[dict, Depends(require_level(1))],
+) -> StationSystem:
+    system = next((s for s in STATION_SYSTEMS if s["system_id"] == system_id.upper()), None)
+    if not system:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"System ID '{system_id}' not found.",
+        )
+    system.update(update.model_dump(exclude_unset=True))
+    return StationSystem(**system)
+
+
 # ── Crew ──────────────────────────────────────────────────────
 
 @app.get(
@@ -826,7 +999,10 @@ async def get_station_systems(
 async def list_crew(
     _user: Annotated[dict, Depends(require_level(1))],
 ) -> list[CrewSummary]:
-    return [CrewSummary(**c) for c in CREW_SUMMARY]
+    return [
+        CrewSummary(crew_id=c["crew_id"], name=c["name"], role=c["role"], duty_status=c["duty_status"])
+        for c in CREW.values()
+    ]
 
 
 @app.get(
@@ -858,6 +1034,38 @@ async def get_crew_member(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Crew ID '{crew_id}' not found.",
         )
+    return CrewMember(**member)
+
+
+@app.patch(
+    "/v1/crew/{crew_id}/duty-status",
+    operation_id="update_crew_duty_status",
+    tags=["crew"],
+    summary="Set a crew member On or Off Duty",
+    description=(
+        "Updates the duty status of a single crew member to either 'On Duty' or 'Off Duty', "
+        "identified by their crew ID. Use this to put a crew member on rotation or stand them down. "
+        "Returns the full updated personnel record. Call list_crew first to resolve a name to a crew ID."
+    ),
+    response_description="The updated crew member record with the new duty status.",
+    response_model=CrewMember,
+    responses={
+        **_COMMON_ERRORS,
+        404: {"model": ErrorResponse, "description": "Crew ID not found"},
+    },
+)
+async def update_crew_duty_status(
+    crew_id: Annotated[str, Path(description="Crew member identifier, e.g. CR-002")],
+    update: DutyStatusUpdate,
+    _user: Annotated[dict, Depends(require_level(2))],
+) -> CrewMember:
+    member = CREW.get(crew_id.upper())
+    if not member:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Crew ID '{crew_id}' not found.",
+        )
+    member["duty_status"] = update.duty_status
     return CrewMember(**member)
 
 
@@ -924,6 +1132,43 @@ async def get_cargo_item(
     return CargoItem(**item)
 
 
+@app.patch(
+    "/v1/cargo/{cargo_id}/inspection",
+    operation_id="update_cargo_inspection",
+    tags=["cargo"],
+    summary="Update a cargo item's inspection status",
+    description=(
+        "Updates the inspection status of a single cargo item, identified by its cargo ID. "
+        "Use this to clear an item as Inspected, mark it Pending Inspection, Flagged, or Restricted. "
+        "Returns the full updated cargo record. Admiral-classified cargo requires level 3 clearance."
+    ),
+    response_description="The updated cargo item record with the new inspection status.",
+    response_model=CargoItem,
+    responses={
+        **_COMMON_ERRORS,
+        404: {"model": ErrorResponse, "description": "Cargo ID not found"},
+    },
+)
+async def update_cargo_inspection(
+    cargo_id: Annotated[str, Path(description="Cargo identifier, e.g. C-421")],
+    update: InspectionUpdate,
+    user: Annotated[dict, Depends(require_level(2))],
+) -> CargoItem:
+    item = CARGO_DETAILS.get(cargo_id.upper())
+    if not item:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Cargo ID '{cargo_id}' not found.",
+        )
+    if item["id"] in CLASSIFIED_CARGO_IDS and user["level"] < 3:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Cargo '{item['id']}' is Admiral-classified. Level 3 clearance required.",
+        )
+    item["inspection_status"] = update.inspection_status
+    return CargoItem(**item)
+
+
 # ── Shipments ─────────────────────────────────────────────────
 
 @app.get(
@@ -945,7 +1190,7 @@ async def get_cargo_item(
 async def list_shipments(
     user: Annotated[dict, Depends(require_level(2))],
 ) -> list[ShipmentSummary]:
-    items = SHIPMENT_SUMMARY
+    items = SHIPMENTS.values()
     if user["level"] < 3:
         items = [s for s in items if s["shipment_id"] not in CLASSIFIED_SHIPMENT_IDS]
     return [ShipmentSummary(**s) for s in items]
@@ -988,6 +1233,110 @@ async def get_shipment(
     return ShipmentDetail(**shipment)
 
 
+@app.post(
+    "/v1/shipments",
+    operation_id="create_shipment",
+    tags=["shipments"],
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a new convoy",
+    description=(
+        "Registers a new convoy and returns its full record, including the server-assigned shipment ID "
+        "(next available SH-NNN). Use this to dispatch a new supply run or shipment. "
+        "Provide the convoy name, origin, destination, and the cargo IDs to load; ETA, status, and notes "
+        "are optional. Requires Logistics Officer clearance (level 2+)."
+    ),
+    response_description="The newly created convoy record, including its assigned shipment ID.",
+    response_model=ShipmentDetail,
+    responses={**_COMMON_ERRORS},
+)
+async def create_shipment(
+    new_shipment: ShipmentCreate,
+    _user: Annotated[dict, Depends(require_level(2))],
+) -> ShipmentDetail:
+    next_num = max((int(sid.split("-")[1]) for sid in SHIPMENTS), default=0) + 1
+    shipment_id = f"SH-{next_num:03d}"
+    record = {
+        "shipment_id": shipment_id,
+        "convoy_name": new_shipment.convoy_name,
+        "status": new_shipment.status,
+        "origin": new_shipment.origin,
+        "destination": new_shipment.destination,
+        "eta": new_shipment.eta,
+        "cargo_ids": new_shipment.cargo_ids,
+        "delay_reason": None,
+        "notes": new_shipment.notes,
+    }
+    SHIPMENTS[shipment_id] = record
+    return ShipmentDetail(**record)
+
+
+@app.patch(
+    "/v1/shipments/{shipment_id}",
+    operation_id="update_shipment",
+    tags=["shipments"],
+    summary="Update a convoy's status, ETA, delay, cargo, or notes",
+    description=(
+        "Updates an existing convoy, identified by its shipment ID. Only the fields you provide are "
+        "changed. Use this to mark a convoy as In Transit or Arrived, record a delay and its reason, "
+        "adjust the ETA, or update the cargo manifest. Returns the full updated convoy record. "
+        "Admiral-classified shipments require level 3 clearance."
+    ),
+    response_description="The updated convoy record.",
+    response_model=ShipmentDetail,
+    responses={
+        **_COMMON_ERRORS,
+        404: {"model": ErrorResponse, "description": "Shipment ID not found"},
+    },
+)
+async def update_shipment(
+    shipment_id: Annotated[str, Path(description="Shipment identifier, e.g. SH-002")],
+    update: ShipmentUpdate,
+    user: Annotated[dict, Depends(require_level(2))],
+) -> ShipmentDetail:
+    shipment = SHIPMENTS.get(shipment_id.upper())
+    if not shipment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Shipment ID '{shipment_id}' not found.",
+        )
+    if shipment["shipment_id"] in CLASSIFIED_SHIPMENT_IDS and user["level"] < 3:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Shipment '{shipment['shipment_id']}' is Admiral-classified. Level 3 clearance required.",
+        )
+    shipment.update(update.model_dump(exclude_unset=True))
+    return ShipmentDetail(**shipment)
+
+
+@app.delete(
+    "/v1/shipments/{shipment_id}",
+    operation_id="delete_shipment",
+    tags=["shipments"],
+    summary="Cancel and remove a convoy",
+    description=(
+        "Permanently removes a convoy from the registry, identified by its shipment ID. "
+        "Use this to cancel a shipment. This is a destructive operation and strictly requires "
+        "Sector Admiral clearance (level 3). Returns a confirmation of the removed shipment."
+    ),
+    response_description="Confirmation that the convoy was removed.",
+    responses={
+        **_COMMON_ERRORS,
+        404: {"model": ErrorResponse, "description": "Shipment ID not found"},
+    },
+)
+async def delete_shipment(
+    shipment_id: Annotated[str, Path(description="Shipment identifier, e.g. SH-002")],
+    _user: Annotated[dict, Depends(require_level(3))],
+) -> dict:
+    removed = SHIPMENTS.pop(shipment_id.upper(), None)
+    if not removed:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Shipment ID '{shipment_id}' not found.",
+        )
+    return {"status": "deleted", "shipment_id": removed["shipment_id"]}
+
+
 # ── Trade ─────────────────────────────────────────────────────
 
 @app.get(
@@ -1009,7 +1358,7 @@ async def get_shipment(
 async def list_trade_manifests(
     user: Annotated[dict, Depends(require_level(2))],
 ) -> list[TradeManifestSummary]:
-    items = TRADE_MANIFEST_SUMMARY
+    items = TRADE_MANIFESTS.values()
     if user["level"] < 3:
         items = [m for m in items if m["manifest_id"] not in CLASSIFIED_MANIFEST_IDS]
     return [TradeManifestSummary(**m) for m in items]
@@ -1049,6 +1398,44 @@ async def get_trade_manifest(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"Trade manifest '{manifest['manifest_id']}' is Admiral-classified. Level 3 clearance required.",
         )
+    return TradeManifestDetail(**manifest)
+
+
+@app.patch(
+    "/v1/trade/manifests/{manifest_id}",
+    operation_id="update_trade_manifest",
+    tags=["trade"],
+    summary="Update a trade contract's status and notes",
+    description=(
+        "Updates the status (Active, Completed, or Pending) and optionally the notes of a single "
+        "trade contract, identified by its manifest ID. Use this to settle a contract, reactivate it, "
+        "or move it back to pending review. Returns the full updated contract record. "
+        "Admiral-classified manifests require level 3 clearance."
+    ),
+    response_description="The updated trade contract record.",
+    response_model=TradeManifestDetail,
+    responses={
+        **_COMMON_ERRORS,
+        404: {"model": ErrorResponse, "description": "Manifest ID not found"},
+    },
+)
+async def update_trade_manifest(
+    manifest_id: Annotated[str, Path(description="Trade manifest identifier, e.g. TM-001")],
+    update: TradeManifestStatusUpdate,
+    user: Annotated[dict, Depends(require_level(2))],
+) -> TradeManifestDetail:
+    manifest = TRADE_MANIFESTS.get(manifest_id.upper())
+    if not manifest:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Manifest ID '{manifest_id}' not found.",
+        )
+    if manifest["manifest_id"] in CLASSIFIED_MANIFEST_IDS and user["level"] < 3:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Trade manifest '{manifest['manifest_id']}' is Admiral-classified. Level 3 clearance required.",
+        )
+    manifest.update(update.model_dump(exclude_unset=True))
     return TradeManifestDetail(**manifest)
 
 
@@ -1096,7 +1483,7 @@ async def get_fleet_orders(
 async def list_missions(
     _user: Annotated[dict, Depends(require_level(3))],
 ) -> list[MissionSummary]:
-    return [MissionSummary(**m) for m in MISSION_SUMMARY]
+    return [MissionSummary(**m) for m in MISSIONS.values()]
 
 
 @app.get(
@@ -1132,6 +1519,39 @@ async def get_mission(
     return MissionDetail(**mission)
 
 
+@app.patch(
+    "/v1/fleet/missions/{mission_id}",
+    operation_id="update_mission",
+    tags=["fleet"],
+    summary="Update a mission's status or notes",
+    description=(
+        "Updates the status (Active, Completed, or Aborted) and/or commanding officer notes of a single "
+        "fleet mission, identified by its mission ID. Only the fields you provide are changed. "
+        "Use this to mark a mission complete or aborted, or to append operational notes. "
+        "Returns the full updated mission briefing. Strictly requires Sector Admiral clearance (level 3)."
+    ),
+    response_description="The updated mission briefing.",
+    response_model=MissionDetail,
+    responses={
+        **_COMMON_ERRORS,
+        404: {"model": ErrorResponse, "description": "Mission ID not found"},
+    },
+)
+async def update_mission(
+    mission_id: Annotated[str, Path(description="Mission identifier, e.g. MISSION-ALPHA")],
+    update: MissionUpdate,
+    _user: Annotated[dict, Depends(require_level(3))],
+) -> MissionDetail:
+    mission = MISSIONS.get(mission_id.upper())
+    if not mission:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Mission ID '{mission_id}' not found.",
+        )
+    mission.update(update.model_dump(exclude_unset=True))
+    return MissionDetail(**mission)
+
+
 # ── Operational (excluded from OpenAPI schema) ────────────────
 
 @app.get("/health", include_in_schema=False)
@@ -1142,3 +1562,31 @@ async def health() -> dict:
 @app.get("/", include_in_schema=False)
 async def root() -> dict:
     return {"service": "Galactic Logistics API — Outpost Gamma", "docs": "/docs"}
+
+
+# Unlisted maintenance hook. Restores the in-memory store to its seed baseline,
+# discarding everything written via the POST/PATCH/DELETE endpoints. Kept out of
+# the OpenAPI schema (include_in_schema=False) and gated by a dedicated secret
+# header (X-Reset-Key, compared to env RESET_KEY) that is independent of the
+# clearance tokens — deliberately not documented in the served API description.
+_RESET_KEY = os.environ.get("RESET_KEY", "reset-outpost-gamma")
+
+
+@app.post("/v1/internal/reset", include_in_schema=False)
+async def reset_database(
+    x_reset_key: Annotated[str | None, Header()] = None,
+) -> dict:
+    if x_reset_key != _RESET_KEY:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Invalid or missing reset key.",
+        )
+    reset_state()
+    return {
+        "status": "reset",
+        "crew": len(CREW),
+        "cargo": len(CARGO_DETAILS),
+        "shipments": len(SHIPMENTS),
+        "trade_manifests": len(TRADE_MANIFESTS),
+        "missions": len(MISSIONS),
+    }

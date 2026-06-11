@@ -7,11 +7,14 @@ data behind a three-tier clearance model.
 It was built as a rich, realistic **demo target for OpenAPI → MCP integration** (NTS-MCP-Buddy):
 the endpoints, descriptions, and role-based access control are designed so an AI agent can
 navigate the API across clearance levels and chain multi-step queries the way a human operator
-would. There is no database — all data is hardcoded in [main.py](main.py).
+would. There is no external database — data lives in a mutable in-memory store seeded from
+hardcoded baseline data in [main.py](main.py), so writes persist for the life of the process
+and can be wiped via the hidden reset endpoint (see below).
 
 ## Features
 
-- **14 read-only endpoints** across 6 domains (station, crew, cargo, shipments, trade, fleet)
+- **Read + write endpoints** across 6 domains (station, crew, cargo, shipments, trade, fleet),
+  backed by a mutable in-memory store seeded from hardcoded baseline data
 - **Role-based access control** with three clearance levels enforced per-endpoint and per-record
 - **Rich OpenAPI spec** — every endpoint and field is documented with descriptions and examples,
   so the generated schema (and any MCP tools derived from it) is self-explanatory
@@ -62,9 +65,44 @@ detail endpoints below level 3.
 | GET | `/v1/fleet/orders` | 3 | Classified strategic orders |
 | GET | `/v1/fleet/missions` | 3 | All fleet missions |
 | GET | `/v1/fleet/missions/{mission_id}` | 3 | Full mission briefing |
+| PATCH | `/v1/station/systems/{system_id}` | 1 | Update a subsystem's status/health/notes |
+| PATCH | `/v1/crew/{crew_id}/duty-status` | 2 | Set a crew member On/Off Duty |
+| PATCH | `/v1/cargo/{cargo_id}/inspection` | 2¹ | Update a cargo item's inspection status |
+| POST | `/v1/shipments` | 2 | Create a new convoy (server assigns `SH-NNN`) |
+| PATCH | `/v1/shipments/{shipment_id}` | 2¹ | Update a convoy's status/eta/delay/cargo/notes |
+| DELETE | `/v1/shipments/{shipment_id}` | 3 | Cancel and remove a convoy |
+| PATCH | `/v1/trade/manifests/{manifest_id}` | 2¹ | Update a trade contract's status/notes |
+| PATCH | `/v1/fleet/missions/{mission_id}` | 3 | Update a mission's status/notes |
+
+Write endpoints mirror the read clearance of their entity. Deletes are Admiral-only (level 3).
+¹ Mutating an Admiral-classified record (`SH-004`, `TM-003`, `C-777`, `C-999`) requires level 3,
+mirroring the read rules.
 
 Interactive docs are served at `/docs` (Swagger UI) and `/redoc`; the raw schema is at
 `/openapi.json`. There is also an unlisted `/health` check.
+
+### Hidden reset endpoint
+
+> **Repo-only docs — intentionally absent from the OpenAPI spec.** This endpoint is *not*
+> in `/openapi.json`, `/docs`, or `/redoc`, and is documented **only here in this README** so
+> that AI/MCP consumers built from the spec never discover or call it.
+
+`POST /v1/internal/reset` restores the in-memory store to its seed baseline, discarding
+everything written via the POST/PATCH/DELETE endpoints. It is gated by a dedicated secret
+header, **independent of the clearance tokens**:
+
+```bash
+curl -X POST -H "X-Reset-Key: <reset-key>" http://localhost:8080/v1/internal/reset
+```
+
+The key is read from the `RESET_KEY` environment variable (default `reset-outpost-gamma` for
+local runs). A missing or wrong key returns `403`. Hand the real key out out-of-band, like the
+clearance tokens.
+
+In deployment, the [GitHub Actions workflow](.github/workflows/deploy.yml) injects `RESET_KEY`
+into the Cloud Run service from a repository secret named **`RESET_KEY`** (set it under
+*Settings → Secrets and variables → Actions*). Make sure that secret is populated — if it's
+unset, the workflow passes an empty value and an empty `X-Reset-Key` header would match.
 
 ## Running locally
 
@@ -104,6 +142,18 @@ curl -H "Authorization: Bearer <logistics-token>" http://localhost:8080/v1/cargo
 
 # Level 3 — classified shipment (hidden / 403 below level 3)
 curl -H "Authorization: Bearer <admiral-token>" http://localhost:8080/v1/shipments/SH-004
+
+# Write — set a crew member off duty (level 2)
+curl -X PATCH -H "Authorization: Bearer <logistics-token>" -H "Content-Type: application/json" \
+  -d '{"duty_status": "Off Duty"}' http://localhost:8080/v1/crew/CR-004/duty-status
+
+# Write — create a new convoy (level 2); server returns the assigned SH-NNN id
+curl -X POST -H "Authorization: Bearer <logistics-token>" -H "Content-Type: application/json" \
+  -d '{"convoy_name": "Convoy Vega", "origin": "Outpost Gamma", "destination": "Waystation Delta", "cargo_ids": ["C-098"]}' \
+  http://localhost:8080/v1/shipments
+
+# Delete — cancel a convoy (Admiral only; 403 below level 3)
+curl -X DELETE -H "Authorization: Bearer <admiral-token>" http://localhost:8080/v1/shipments/SH-006
 ```
 
 In Swagger UI, click **Authorize**, paste a token, and every "Try it out" call carries it.
