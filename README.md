@@ -1,4 +1,4 @@
-# Galactic Logistics API — Outpost Gamma
+# Galactic Logistics API
 
 A small, self-contained FastAPI service that simulates the operational API of a deep-space
 logistics and command station. It exposes crew, cargo, shipment, trade, and classified fleet
