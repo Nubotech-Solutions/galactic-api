@@ -871,6 +871,7 @@ app = FastAPI(
 BASE_DIR = FilePath(__file__).resolve().parent
 SITE_DIR = BASE_DIR / "site"
 DOCS_DIR = BASE_DIR / "docs"
+ONBOARDING_PDF = DOCS_DIR / "Galactic-Logistics-API-Onboarding.pdf"
 app.mount(
     "/assets",
     StaticFiles(directory=SITE_DIR / "assets"),
@@ -1581,12 +1582,14 @@ async def site_script() -> FileResponse:
     return FileResponse(SITE_DIR / "app.js")
 
 
+@app.get("/docs/Galactic-Logistics-API-Onboarding.pdf", include_in_schema=False)
 @app.get("/api-onboarding.pdf", include_in_schema=False)
 async def api_onboarding_pdf() -> FileResponse:
     return FileResponse(
-        DOCS_DIR / "Galactic-Logistics-API-Onboarding.pdf",
+        ONBOARDING_PDF,
         media_type="application/pdf",
         filename="Galactic-Logistics-API-Onboarding.pdf",
+        content_disposition_type="inline",
     )
 
 
