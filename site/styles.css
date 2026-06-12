@@ -46,9 +46,9 @@ a {
   position: fixed;
   inset: 0 0 auto 0;
   z-index: 20;
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  justify-content: space-between;
   gap: 1.5rem;
   padding: 0.9rem clamp(1rem, 3vw, 2.5rem);
   background: rgba(9, 11, 16, 0.78);
@@ -59,6 +59,7 @@ a {
 .brand {
   display: inline-flex;
   align-items: center;
+  justify-self: start;
   gap: 0.75rem;
   min-width: 0;
   text-decoration: none;
@@ -94,6 +95,7 @@ a {
 .nav-links {
   display: flex;
   align-items: center;
+  justify-self: center;
   gap: clamp(0.75rem, 2vw, 1.5rem);
   color: var(--muted);
   font-size: 0.9rem;
@@ -617,6 +619,7 @@ h3 {
 
 @media (max-width: 920px) {
   .site-header {
+    display: flex;
     align-items: flex-start;
     flex-direction: column;
     gap: 0.7rem;

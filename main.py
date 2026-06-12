@@ -785,10 +785,10 @@ class MissionUpdate(BaseModel):
 # ──────────────────────────────────────────────────────────────
 
 _APP_DESCRIPTION = """
-Official operational API for **Outpost Gamma**, a deep-space logistics and command station
+Official operational API for **Galactic Logistics**, a deep-space logistics company
 on the frontier of explored space.
 
-This API provides crew, command, and partner systems with access to station health data,
+This API provides crew, command, and partner systems with access to Gamma station health data,
 cargo manifests, shipment tracking, trade contracts, and classified fleet operations.
 
 ---
@@ -862,13 +862,15 @@ _OPENAPI_TAGS = [
 ]
 
 app = FastAPI(
-    title="Galactic Logistics API — Outpost Gamma",
+    title="Galactic Logistics API",
     description=_APP_DESCRIPTION,
     version="2.0.0",
     openapi_tags=_OPENAPI_TAGS,
 )
 
-SITE_DIR = FilePath(__file__).resolve().parent / "site"
+BASE_DIR = FilePath(__file__).resolve().parent
+SITE_DIR = BASE_DIR / "site"
+DOCS_DIR = BASE_DIR / "docs"
 app.mount(
     "/assets",
     StaticFiles(directory=SITE_DIR / "assets"),
@@ -1577,6 +1579,15 @@ async def site_styles() -> FileResponse:
 @app.get("/app.js", include_in_schema=False)
 async def site_script() -> FileResponse:
     return FileResponse(SITE_DIR / "app.js")
+
+
+@app.get("/api-onboarding.pdf", include_in_schema=False)
+async def api_onboarding_pdf() -> FileResponse:
+    return FileResponse(
+        DOCS_DIR / "Galactic-Logistics-API-Onboarding.pdf",
+        media_type="application/pdf",
+        filename="Galactic-Logistics-API-Onboarding.pdf",
+    )
 
 
 @app.get("/", include_in_schema=False)
